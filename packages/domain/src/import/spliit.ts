@@ -372,16 +372,30 @@ export function buildSpliitGroupFetchUrl(
   return `${base.replace(/\/+$/, '')}/groups/${trimmed}/expenses/export/json`
 }
 
-export function extractSpliitGroupIdFromUrl(input: string): string | null {
+/**
+ * Parse a Spliit group URL (`<origin>/groups/<id>`) from spliit.app or any
+ * self-hosted Spliit instance. www.spliit.app is canonicalized to spliit.app.
+ */
+export function parseSpliitGroupUrl(
+  input: string,
+): { origin: string; groupId: string } | null {
   let url: URL
   try {
     url = new URL(input)
   } catch {
     return null
   }
-  if (!/^(www\.)?spliit\.app$/i.test(url.hostname)) return null
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
   const match = url.pathname.match(/^\/groups\/([^/?#]+)/)
   if (!match) return null
-  const id = match[1]!.replace(/^\/+|\/+$/g, '')
-  return id.length > 0 ? id : null
+  const groupId = match[1]!.replace(/^\/+|\/+$/g, '')
+  if (groupId.length === 0) return null
+  const origin = /^(www\.)?spliit\.app$/i.test(url.hostname)
+    ? 'https://spliit.app'
+    : url.origin
+  return { origin, groupId }
+}
+
+export function extractSpliitGroupIdFromUrl(input: string): string | null {
+  return parseSpliitGroupUrl(input)?.groupId ?? null
 }

@@ -16,8 +16,8 @@ import { Context, Effect, Layer } from 'effect'
 
 import {
   buildSpliitGroupFetchUrl,
-  extractSpliitGroupIdFromUrl,
   extractTricountToken,
+  parseSpliitGroupUrl,
   runParseSpliitJson,
   runParseTricountApi,
   type NormalizedSource,
@@ -114,13 +114,19 @@ function makeService(fetchImpl: PreviewFetchImpl) {
     sourceUrl: string,
   ): Effect.Effect<PreviewResult, never> =>
     Effect.gen(function* () {
-      const sourceGroupId = extractSpliitGroupIdFromUrl(sourceUrl)
-      if (!sourceGroupId) {
+      const parsed = parseSpliitGroupUrl(sourceUrl)
+      if (!parsed) {
         return {
           kind: 'ERROR' as const,
           message: 'Not a valid spliit.app group URL',
         }
       }
+      // spliit.app keeps the bare id as cache key (shared with `lookupGroup`);
+      // self-hosted sources are namespaced by origin so ids cannot collide.
+      const sourceGroupId =
+        parsed.origin === 'https://spliit.app'
+          ? parsed.groupId
+          : `${parsed.origin}/groups/${parsed.groupId}`
       if (isSpliitRateLimited(sourceGroupId)) {
         return {
           kind: 'ERROR' as const,
@@ -130,7 +136,7 @@ function makeService(fetchImpl: PreviewFetchImpl) {
       const cached = getCachedSource(sourceGroupId)
       if (cached) return { kind: 'OK' as const, source: cached }
 
-      const url = buildSpliitGroupFetchUrl(sourceGroupId)
+      const url = buildSpliitGroupFetchUrl(parsed.groupId, parsed.origin)
       const fetched = yield* Effect.tryPromise({
         try: async () => {
           const ac = new AbortController()

@@ -60,11 +60,11 @@ describe('groups.importPreview', () => {
     vi.unstubAllGlobals()
   })
 
-  it('rejects a URL that is not on spliit.app', async () => {
+  it('rejects a URL that is not a Spliit group URL', async () => {
     // ctx resolved per-call via makeCaller()
     const caller = await makeCaller()
     await expect(
-      caller.importPreview({ sourceUrl: 'https://example.com/groups/abc' }),
+      caller.importPreview({ sourceUrl: 'https://example.com/foo/abc' }),
     ).rejects.toThrow()
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -93,6 +93,26 @@ describe('groups.importPreview', () => {
     })
     expect(second.kind).toBe('OK')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('fetches the export from a self-hosted Spliit origin', async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify(validExport),
+      json: async () => validExport,
+    })
+    const caller = await makeCaller()
+    const result = await caller.importPreview({
+      sourceUrl: 'https://split.example.com/groups/grp-1',
+    })
+    expect(result.kind).toBe('OK')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://split.example.com/groups/grp-1/expenses/export/json',
+      expect.anything(),
+    )
+    // Namespaced so it cannot shadow spliit.app's `grp-1`.
+    expect(getCachedSource('grp-1')).toBeNull()
   })
 
   it('returns NOT_FOUND on HTTP 404', async () => {

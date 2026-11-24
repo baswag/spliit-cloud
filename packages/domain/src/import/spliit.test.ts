@@ -7,6 +7,7 @@ import { Effect } from 'effect'
 import {
   buildSpliitGroupFetchUrl,
   extractSpliitGroupIdFromUrl,
+  parseSpliitGroupUrl,
   parseSpliitExport,
 } from './spliit'
 
@@ -702,8 +703,22 @@ describe('extractSpliitGroupIdFromUrl', () => {
       extractSpliitGroupIdFromUrl('https://www.spliit.app/groups/abc'),
     ).toBe('abc')
   })
-  it('returns null for a different host', () => {
+  it('accepts self-hosted Spliit instances', () => {
     expect(extractSpliitGroupIdFromUrl('https://example.com/groups/abc')).toBe(
+      'abc',
+    )
+  })
+  it('returns the source origin for self-hosted instances', () => {
+    expect(
+      parseSpliitGroupUrl('https://split.example.com/groups/abc/expenses'),
+    ).toEqual({ origin: 'https://split.example.com', groupId: 'abc' })
+    expect(parseSpliitGroupUrl('https://www.spliit.app/groups/abc')).toEqual({
+      origin: 'https://spliit.app',
+      groupId: 'abc',
+    })
+  })
+  it('returns null for non-http protocols', () => {
+    expect(extractSpliitGroupIdFromUrl('ftp://spliit.app/groups/abc')).toBe(
       null,
     )
   })
